@@ -43,6 +43,7 @@ class Kingdom:
     def tick(self):
         for person in self.people:
             remaining_resources = person.job.work(self.resources)
+            print(remaining_resources)
             if not isinstance(remaining_resources, int):
                 self.resources = remaining_resources
         for i, item in enumerate(self.resources):
@@ -255,7 +256,9 @@ while run:
                     selected_button = i
                     break
             else:
-                if play_button.clicked(): main_kingdom.tick()
+                if play_button.clicked(): 
+                    main_kingdom.tick()
+                    main_kingdom.employ_all_people()
         if event.type == pg.MOUSEBUTTONUP:
             if selected_button is None:
                 continue
