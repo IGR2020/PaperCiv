@@ -1,5 +1,5 @@
 import pygame as pg
-from EPT import load_assets, Button
+from EPT import load_assets, Button, blit_text
 import json
 from os import listdir
 from os.path import join
@@ -12,7 +12,7 @@ class Kingdom:
         self.buildings = []
         self.resources = []
 
-    def add_building(self, name, x, y, width, height): 
+    def add_building(self, name, x, y, width, height):
         "this function will return -1 if the kingdon does not have the required resouces"
         for value in building_info[name]["cost"]:
             for i, item in enumerate(self.resources):
@@ -22,21 +22,34 @@ class Kingdom:
                     break
             else:
                 return -1
-            
-        self.buildings.append(Building(x, y, width, height, name, building_info[name]["jobs"]))
+
+        self.buildings.append(
+            Building(x, y, width, height, name, building_info[name]["jobs"])
+        )
 
     def display(self, window, x_offset=0, y_offset=0):
         for building in self.buildings:
             building.display(window, x_offset, y_offset)
+        
+        # items
+        for i, item in enumerate(self.resources):
+            x = blit_text(window, item.name + " " + str(item.count), (0, i*text_size+text_size*0.2*i), size=text_size).get_width()
+            try:
+                window.blit(assets[item.name], (x+text_size, i*text_size+text_size*0.2*i))
+            except KeyError:
+                window.blit(assets["Missing Item"], (x+text_size, i*text_size+text_size*0.2*i))
+            
 
     def tick(self):
         for person in self.people:
-            person.job.work(self.resources)
+            remaining_resources = person.job.work(self.resources)
+            if not isinstance(remaining_resources, int):
+                self.resources = remaining_resources
         for i, item in enumerate(self.resources):
             if item.name == "person":
                 self.unemployed_people.append(Person())
                 self.resources.pop(i)
-        
+
     def employ_all_people(self):
         for i in range(len(self.unemployed_people)):
             for building in self.buildings:
@@ -45,6 +58,8 @@ class Kingdom:
                     self.unemployed_people.pop(i)
                     building.jobs -= 1
                     break
+
+
 class Person:
     def __init__(self, job=None) -> None:
         self.job = job
@@ -62,17 +77,32 @@ class Item:
             return Item(self.name, self.count + other)
         if not isinstance(other, Item):
             return -1
-        if self.name == other.name or (self.tag == other.tag and self.tag is not None):
+        if self.name == other.name or (
+            (self.tag == other.tag or self.tag == other.name or self.name == other.tag)
+            and self.tag is not None
+        ):
             return Item(self.name, self.count + other.count)
         return -1
 
     def __sub__(self, other):
         """This function will return -1 if it cannot subtract the values"""
-        if isinstance(other, int) or isinstance(other, float):
+        if (
+            isinstance(other, int) or isinstance(other, float)
+        ) and self.count > other.count:
             return Item(self.name, self.count - other)
         if not isinstance(other, Item):
             return -1
-        if self.name == other.name or (self.tag == other.tag and self.tag is not None):
+        if (
+            self.name == other.name
+            or (
+                (
+                    self.tag == other.tag
+                    or self.tag == other.name
+                    or self.name == other.tag
+                )
+                and self.tag is not None
+            )
+        ) and self.count > other.count:
             return Item(self.name, self.count - other.count)
         return -1
 
@@ -93,12 +123,22 @@ class Building(pg.Rect):
     def work(self, resources):
         "this function will return -1 if there are insufficent resoureces"
         for item in building_info[self.name]["in"]:
-            for value in resources:
+            for i, value in enumerate(resources):
                 new_item = value - item
                 if not isinstance(new_item, int):
-                    value = new_item
+                    resources[i] = new_item
                     break
+            else:
                 return -1
+        for item in building_info[self.name]["out"]:
+            for i, value in enumerate(resources):
+                new_item = value + item
+                if not isinstance(new_item, int):
+                    resources[i] = new_item
+                    break
+            else:
+                resources.append(item)
+        return resources
 
 
 def load_building_info(path):
@@ -130,7 +170,7 @@ def load_building_info(path):
             "cost": cost_items_loaded,
             "in": in_items_loaded,
             "out": out_items_loaded,
-            "jobs": jobs
+            "jobs": jobs,
         }
     return loaded_data
 
@@ -146,8 +186,10 @@ run = True
 fps = 60
 clock = pg.time.Clock()
 
+text_size = 20
+
 button_size = 25
-button_scale = 4
+button_scale = 2
 
 buttons = []
 for i, asset in enumerate(assets):
@@ -162,28 +204,64 @@ for i, asset in enumerate(assets):
             asset,
         )
     )
+div_rect = pg.Rect(
+    0, window_height - button_size * button_scale, window_width, 5
+)  # decorational only
+
+
+# loading non-building assets
+assets.update(load_assets("assets/buttons"))
+assets.update(load_assets("assets/items"))
+
+play_button_size = 48
+play_button = Button((window_width-play_button_size, 0), assets["Play"])
+
 
 main_kingdom = Kingdom()
-main_kingdom.resources = [Item("wheat", 10, "food"), Item("water", 70), Item("wood", 50), Item("person", 1)]
-main_kingdom.add_building("House2", 0, 0, 100, 100)
-main_kingdom.tick()
-main_kingdom.employ_all_people()
-main_kingdom.tick()
-print(len(main_kingdom.people))
-print(main_kingdom.resources)
+main_kingdom.resources = [
+    Item("wheat", 20, "food"),
+    Item("water", 70),
+    Item("wood", 50),
+    Item("person", 1),
+]
+main_kingdom.add_building("House2", 50, 100, 100, 100)
+
 
 def display():
     window.fill((255, 255, 255))
     main_kingdom.display(window)
+
+    # buttons
     for button in buttons:
         button.display(window)
+    play_button.display(window)
+    pg.draw.rect(window, (0, 0, 0), div_rect)
+
+    # draging buildings for adding
+    if selected_button is not None:
+        window.blit(assets[buttons[selected_button].info], pg.mouse.get_pos())
     pg.display.update()
 
+
+selected_button = None
 
 while run:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             run = False
+        if event.type == pg.MOUSEBUTTONDOWN:
+            for i, button in enumerate(buttons):
+                if button.clicked():
+                    selected_button = i
+                    break
+            else:
+                if play_button.clicked(): main_kingdom.tick()
+        if event.type == pg.MOUSEBUTTONUP:
+            if selected_button is None:
+                continue
+            x, y = pg.mouse.get_pos()
+            main_kingdom.add_building(buttons[selected_button].info, x, y, 10, 10)
+            selected_button = None
     display()
 pg.quit()
 quit()
