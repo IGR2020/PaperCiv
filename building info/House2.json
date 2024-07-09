@@ -1,3 +1,6 @@
 {
-    "cost": [{"name": "wood", "count": 5}]
+    "cost": [{"item": "wood", "count": 5}],
+    "in": [{"item": "food", "count": 10}, {"item": "water", "count": 20}],
+    "out": [{"item": "person", "count": 1}],
+    "jobs": 2
 }
