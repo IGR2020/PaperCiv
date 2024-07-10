@@ -3,6 +3,7 @@ from EPT import load_assets, Button, blit_text
 import json
 from os import listdir
 from os.path import join
+from math import ceil
 
 
 class Kingdom:
@@ -30,20 +31,29 @@ class Kingdom:
     def display(self, window, x_offset=0, y_offset=0):
         for building in self.buildings:
             building.display(window, x_offset, y_offset)
-        
+
         # items
         for i, item in enumerate(self.resources):
-            x = blit_text(window, item.name + " " + str(item.count), (0, i*text_size+text_size*0.2*i), size=text_size).get_width()
+            x = blit_text(
+                window,
+                item.name + "   " + str(item.count),
+                (0, i * text_size + text_size * 0.2 * i - 5),
+                size=text_size,
+            ).get_width()
             try:
-                window.blit(assets[item.name], (x+text_size, i*text_size+text_size*0.2*i))
+                window.blit(
+                    assets[item.name],
+                    (resource_div_rect_x-default_item_size*2, i * text_size + text_size * 0.2 * i),
+                )
             except KeyError:
-                window.blit(assets["Missing Item"], (x+text_size, i*text_size+text_size*0.2*i))
-            
+                window.blit(
+                    assets["Missing Item"],
+                    (resource_div_rect_x-default_item_size*2, i * text_size + text_size * 0.2 * i),
+                )
 
     def tick(self):
         for person in self.people:
             remaining_resources = person.job.work(self.resources)
-            print(remaining_resources)
             if not isinstance(remaining_resources, int):
                 self.resources = remaining_resources
         for i, item in enumerate(self.resources):
@@ -90,7 +100,7 @@ class Item:
         if (
             isinstance(other, int) or isinstance(other, float)
         ) and self.count > other.count:
-            return Item(self.name, self.count - other)
+            return Item(self.name, self.count - other, self.tag)
         if not isinstance(other, Item):
             return -1
         if (
@@ -104,7 +114,7 @@ class Item:
                 and self.tag is not None
             )
         ) and self.count > other.count:
-            return Item(self.name, self.count - other.count)
+            return Item(self.name, self.count - other.count, self.tag)
         return -1
 
     def __repr__(self) -> str:
@@ -162,10 +172,22 @@ def load_building_info(path):
         out_items_loaded = []
         for value in cost:
             cost_items_loaded.append(Item(value["item"], value["count"]))
+            try:
+                cost_items_loaded[-1].tag = value["tag"]
+            except KeyError:
+                continue
         for value in in_items:
             in_items_loaded.append(Item(value["item"], value["count"]))
+            try:
+                in_items_loaded[-1].tag = value["tag"]
+            except KeyError:
+                continue
         for value in out_items:
             out_items_loaded.append(Item(value["item"], value["count"]))
+            try:
+                out_items_loaded[-1].tag = value["tag"]
+            except KeyError:
+                continue
         jobs = building_data["jobs"]
         loaded_data[build] = {
             "cost": cost_items_loaded,
@@ -179,7 +201,7 @@ def load_building_info(path):
 assets = load_assets("assets")
 building_info = load_building_info("building info")
 
-window_width, window_height = 900, 500
+window_width, window_height = 1920 * 0.7, 1080 * 0.7
 window = pg.display.set_mode((window_width, window_height))
 pg.display.set_caption("PaperCiv")
 
@@ -187,7 +209,8 @@ run = True
 fps = 60
 clock = pg.time.Clock()
 
-text_size = 20
+text_size = 30
+default_item_size = 32
 
 button_size = 25
 button_scale = 2
@@ -208,24 +231,26 @@ for i, asset in enumerate(assets):
 div_rect = pg.Rect(
     0, window_height - button_size * button_scale, window_width, 5
 )  # decorational only
-
+resource_div_rect = pg.Rect(300, 0, 5, window_height)  # decorational only
+resource_div_rect_x = resource_div_rect.x
 
 # loading non-building assets
 assets.update(load_assets("assets/buttons"))
-assets.update(load_assets("assets/items"))
+assets.update(
+    load_assets("assets/items", None, ceil(text_size / default_item_size * 2))
+)
 
 play_button_size = 48
-play_button = Button((window_width-play_button_size, 0), assets["Play"])
+play_button = Button((window_width - play_button_size, 0), assets["Play"])
 
 
 main_kingdom = Kingdom()
 main_kingdom.resources = [
-    Item("wheat", 20, "food"),
-    Item("water", 70),
+    Item("wheat", 100, "food"),
+    Item("water", 100),
     Item("wood", 50),
     Item("person", 1),
 ]
-main_kingdom.add_building("House2", 50, 100, 100, 100)
 
 
 def display():
@@ -237,6 +262,7 @@ def display():
         button.display(window)
     play_button.display(window)
     pg.draw.rect(window, (0, 0, 0), div_rect)
+    pg.draw.rect(window, (0, 0, 0), resource_div_rect)
 
     # draging buildings for adding
     if selected_button is not None:
@@ -256,7 +282,7 @@ while run:
                     selected_button = i
                     break
             else:
-                if play_button.clicked(): 
+                if play_button.clicked():
                     main_kingdom.tick()
                     main_kingdom.employ_all_people()
         if event.type == pg.MOUSEBUTTONUP:
