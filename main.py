@@ -13,7 +13,7 @@ class Kingdom:
         self.buildings = []
         self.resources = []
 
-    def add_building(self, name, x, y, width, height):
+    def add_building(self, name, x, y):
         "this function will return -1 if the kingdon does not have the required resouces"
         for value in building_info[name]["cost"]:
             for i, item in enumerate(self.resources):
@@ -25,7 +25,7 @@ class Kingdom:
                 return -1
 
         self.buildings.append(
-            Building(x, y, width, height, name, building_info[name]["jobs"])
+            Building(x, y, name, building_info[name]["jobs"])
         )
 
     def display(self, window, x_offset=0, y_offset=0):
@@ -34,7 +34,7 @@ class Kingdom:
 
         # items
         for i, item in enumerate(self.resources):
-            x = blit_text(
+            blit_text(
                 window,
                 item.name + "   " + str(item.count),
                 (0, i * text_size + text_size * 0.2 * i - 5),
@@ -58,6 +58,7 @@ class Kingdom:
                 self.resources = remaining_resources
         for i, item in enumerate(self.resources):
             if item.name == "person":
+                print(1)
                 self.unemployed_people.append(Person())
                 self.resources.pop(i)
 
@@ -122,17 +123,22 @@ class Item:
 
 
 class Building(pg.Rect):
-    def __init__(self, x, y, width, height, name, jobs, up_keep_cost=None):
+    def __init__(self, x, y, name, jobs, up_keep_cost=None):
+        width, height = assets[name].get_size()
         super().__init__(x, y, width, height)
         self.name = name
         self.maintanince = up_keep_cost
         self.jobs = jobs
+        self.manual = True
 
     def display(self, window, x_offset, y_offset):
         window.blit(assets[self.name], (self.x - x_offset, self.y - y_offset))
 
-    def work(self, resources):
+    def work(self, resources, called_as_click=False):
         "this function will return -1 if there are insufficent resoureces"
+        if self.manual and not called_as_click:
+            return -1
+        
         for item in building_info[self.name]["in"]:
             for i, value in enumerate(resources):
                 new_item = value - item
@@ -198,7 +204,7 @@ def load_building_info(path):
     return loaded_data
 
 
-assets = load_assets("assets")
+assets = load_assets("assets/building buttons")
 building_info = load_building_info("building info")
 
 window_width, window_height = 1920 * 0.7, 1080 * 0.7
@@ -212,8 +218,8 @@ clock = pg.time.Clock()
 text_size = 30
 default_item_size = 32
 
-button_size = 25
-button_scale = 2
+button_size = 48
+button_scale = 1
 
 buttons = []
 for i, asset in enumerate(assets):
@@ -231,10 +237,11 @@ for i, asset in enumerate(assets):
 div_rect = pg.Rect(
     0, window_height - button_size * button_scale, window_width, 5
 )  # decorational only
-resource_div_rect = pg.Rect(300, 0, 5, window_height)  # decorational only
+resource_div_rect = pg.Rect(300, 0, 5, window_height-button_size*button_scale)  # decorational only
 resource_div_rect_x = resource_div_rect.x
 
 # loading non-building assets
+assets.update(load_assets("assets/buildings"))
 assets.update(load_assets("assets/buttons"))
 assets.update(
     load_assets("assets/items", None, ceil(text_size / default_item_size * 2))
@@ -252,6 +259,12 @@ main_kingdom.resources = [
     Item("person", 1),
 ]
 
+is_configuring = False
+configuring_pos = None
+building_configered = None
+# configure buttons
+manual_config = Button((0, 0), assets["Off"], 1)
+
 
 def display():
     window.fill((255, 255, 255))
@@ -267,6 +280,11 @@ def display():
     # draging buildings for adding
     if selected_button is not None:
         window.blit(assets[buttons[selected_button].info], pg.mouse.get_pos())
+
+    # building configuration
+    if is_configuring:
+        window.blit(assets["Building Configure"], configuring_pos)
+        manual_config.display(window)
     pg.display.update()
 
 
@@ -277,6 +295,16 @@ while run:
         if event.type == pg.QUIT:
             run = False
         if event.type == pg.MOUSEBUTTONDOWN:
+            if is_configuring:
+                if manual_config.clicked():
+                    main_kingdom.buildings[building_configered].manual = not main_kingdom.buildings[building_configered].manual
+                    if not main_kingdom.buildings[building_configered].manual:
+                        manual_config.image = assets["On"]
+                    else:
+                        manual_config.image = assets["Off"]
+                else:
+                    is_configuring = False
+
             for i, button in enumerate(buttons):
                 if button.clicked():
                     selected_button = i
@@ -285,11 +313,30 @@ while run:
                 if play_button.clicked():
                     main_kingdom.tick()
                     main_kingdom.employ_all_people()
+                    continue
+                x, y = pg.mouse.get_pos()
+                for i, building in enumerate(main_kingdom.buildings):
+                    if building.collidepoint((x, y)):
+                        if event.button == 1:
+                            remaining_resources = building.work(main_kingdom.resources, True)
+                            if not isinstance(remaining_resources, int):
+                                main_kingdom.resources = remaining_resources
+                        if event.button == 3:
+                            configuring_pos = x, y
+                            is_configuring = True
+                            building_configered = i
+                            if not main_kingdom.buildings[building_configered].manual:
+                                manual_config.image = assets["On"]
+                            else:
+                                manual_config.image = assets["Off"]
+                            manual_config.topleft = x + 120, y + 4
+
+
         if event.type == pg.MOUSEBUTTONUP:
             if selected_button is None:
                 continue
             x, y = pg.mouse.get_pos()
-            main_kingdom.add_building(buttons[selected_button].info, x, y, 10, 10)
+            main_kingdom.add_building(buttons[selected_button].info, x, y)
             selected_button = None
     display()
 pg.quit()
