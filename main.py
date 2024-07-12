@@ -58,16 +58,16 @@ class Kingdom:
                 self.resources = remaining_resources
         for i, item in enumerate(self.resources):
             if item.name == "person":
-                print(1)
-                self.unemployed_people.append(Person())
+                for j in range(item.count):
+                    self.unemployed_people.append(Person())
                 self.resources.pop(i)
 
     def employ_all_people(self):
-        for i in range(len(self.unemployed_people)):
+        for i, person in enumerate(self.unemployed_people):
             for building in self.buildings:
                 if building.jobs > 0:
-                    self.people.append(Person(building))
                     self.unemployed_people.pop(i)
+                    self.people.append(Person(building))
                     building.jobs -= 1
                     break
 
@@ -86,14 +86,14 @@ class Item:
     def __add__(self, other):
         """This function will return -1 if it cannot add the values"""
         if isinstance(other, int) or isinstance(other, float):
-            return Item(self.name, self.count + other)
+            return Item(self.name, self.count + other, self.tag)
         if not isinstance(other, Item):
             return -1
         if self.name == other.name or (
             (self.tag == other.tag or self.tag == other.name or self.name == other.tag)
             and self.tag is not None
         ):
-            return Item(self.name, self.count + other.count)
+            return Item(self.name, self.count + other.count, self.tag)
         return -1
 
     def __sub__(self, other):
@@ -119,7 +119,7 @@ class Item:
         return -1
 
     def __repr__(self) -> str:
-        return "{'name': " + str(self.name) + ", 'count': " + str(self.count) + "}"
+        return "{name: " + str(self.name) + ", count: " + str(self.count) + ",  tag: " + str(self.tag) + "}"
 
 
 class Building(pg.Rect):
@@ -208,7 +208,7 @@ assets = load_assets("assets/building buttons")
 building_info = load_building_info("building info")
 
 window_width, window_height = 1920 * 0.7, 1080 * 0.7
-window = pg.display.set_mode((window_width, window_height))
+window = pg.display.set_mode((window_width, window_height), pg.RESIZABLE)
 pg.display.set_caption("PaperCiv")
 
 run = True
@@ -267,6 +267,7 @@ manual_config = Button((0, 0), assets["Off"], 1)
 add_people_config = Button((0, 0), assets["Plus"])
 minus_people_config = Button((0, 0), assets["Minus"])
 people_text_pos = 70, 60
+people_employed_stat = 0
 
 
 def display():
@@ -290,6 +291,7 @@ def display():
         manual_config.display(window)
         add_people_config.display(window)
         minus_people_config.display(window)
+        blit_text(window, people_employed_stat, people_text_pos)
     pg.display.update()
 
 
@@ -307,6 +309,20 @@ while run:
                         manual_config.image = assets["On"]
                     else:
                         manual_config.image = assets["Off"]
+                elif add_people_config.clicked():
+                    try:
+                        main_kingdom.unemployed_people.pop(0)
+                        main_kingdom.people.append(Person(main_kingdom.buildings[building_configered]))
+                        people_employed_stat += 1
+                    except IndexError:
+                        pass
+                elif minus_people_config.clicked():
+                    for i, person in enumerate(main_kingdom.people):
+                        if id(person.job) == id(main_kingdom.buildings[building_configered]):
+                            main_kingdom.people.pop(i)
+                            main_kingdom.unemployed_people.append(Person())
+                            people_employed_stat -= 1
+                            break
                 else:
                     is_configuring = False
 
@@ -327,6 +343,7 @@ while run:
                             if not isinstance(remaining_resources, int):
                                 main_kingdom.resources = remaining_resources
                         if event.button == 3:
+                            people_employed_stat = 0
                             configuring_pos = x, y
                             is_configuring = True
                             building_configered = i
@@ -337,6 +354,10 @@ while run:
                             manual_config.topleft = x + 120, y + 4
                             add_people_config.topleft = x + 4, y + 60
                             minus_people_config.topleft = x + 140, y + 60
+                            people_text_pos = x + 70, y + 60
+                            for person in main_kingdom.people:
+                                if id(person.job) == id(main_kingdom.buildings[building_configered]):
+                                    people_employed_stat += 1
 
 
         if event.type == pg.MOUSEBUTTONUP:
