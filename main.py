@@ -264,6 +264,9 @@ configuring_pos = None
 building_configered = None
 # configure buttons
 manual_config = Button((0, 0), assets["Off"], 1)
+add_people_config = Button((0, 0), assets["Plus"])
+minus_people_config = Button((0, 0), assets["Minus"])
+people_text_pos = 70, 60
 
 
 def display():
@@ -285,6 +288,8 @@ def display():
     if is_configuring:
         window.blit(assets["Building Configure"], configuring_pos)
         manual_config.display(window)
+        add_people_config.display(window)
+        minus_people_config.display(window)
     pg.display.update()
 
 
@@ -330,6 +335,8 @@ while run:
                             else:
                                 manual_config.image = assets["Off"]
                             manual_config.topleft = x + 120, y + 4
+                            add_people_config.topleft = x + 4, y + 60
+                            minus_people_config.topleft = x + 140, y + 60
 
 
         if event.type == pg.MOUSEBUTTONUP:
