@@ -65,10 +65,13 @@ class Kingdom:
         for person in self.people:
             remaining_resources = person.job.work(self.resources)
             if not isinstance(remaining_resources, int):
-                if item.name == "water" and self.total_water < item.count:
-                    continue
-                if item.name == "water":
-                    self.total_water -= item.count
+                for i, item in enumerate(remaining_resources):
+                    if item.name == "water" and self.total_water < item.count:
+                        remaining_resources.pop(i)
+                        break
+                    if item.name == "water":
+                        self.total_water -= item.count
+                        break
                 self.resources = remaining_resources
         for i, item in enumerate(self.resources):
             if item.name == "person":
