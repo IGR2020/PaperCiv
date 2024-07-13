@@ -7,11 +7,13 @@ from math import ceil
 
 
 class Kingdom:
-    def __init__(self) -> None:
+    def __init__(self, total_water=100_000, water_add=667) -> None:
         self.people = []
         self.unemployed_people = []
         self.buildings = []
         self.resources = []
+        self.total_water = total_water
+        self.water_added = water_add
 
     def add_building(self, name, x, y):
         "this function will return -1 if the kingdon does not have the required resouces"
@@ -24,11 +26,9 @@ class Kingdom:
             else:
                 return -1
 
-        self.buildings.append(
-            Building(x, y, name, building_info[name]["jobs"])
-        )
+        self.buildings.append(Building(x, y, name, building_info[name]["jobs"]))
 
-    def display(self, window, x_offset=0, y_offset=0):
+    def display(self, window, x_offset=0, y_offset=0, resource_display_y_offset=0):
         for building in self.buildings:
             building.display(window, x_offset, y_offset)
 
@@ -37,24 +37,38 @@ class Kingdom:
             blit_text(
                 window,
                 item.name + "   " + str(item.count),
-                (0, i * text_size + text_size * 0.2 * i - 5),
+                (
+                    0,
+                    i * text_size + text_size * 0.2 * i - 5 + resource_display_y_offset,
+                ),
                 size=text_size,
             ).get_width()
             try:
                 window.blit(
                     assets[item.name],
-                    (resource_div_rect_x-default_item_size*2, i * text_size + text_size * 0.2 * i),
+                    (
+                        resource_div_rect.x - default_item_size * 2,
+                        i * text_size + text_size * 0.2 * i + resource_display_y_offset,
+                    ),
                 )
             except KeyError:
                 window.blit(
                     assets["Missing Item"],
-                    (resource_div_rect_x-default_item_size*2, i * text_size + text_size * 0.2 * i),
+                    (
+                        resource_div_rect.x - default_item_size * 2,
+                        i * text_size + text_size * 0.2 * i + resource_display_y_offset,
+                    ),
                 )
 
     def tick(self):
+        self.total_water += self.water_added
         for person in self.people:
             remaining_resources = person.job.work(self.resources)
             if not isinstance(remaining_resources, int):
+                if item.name == "water" and self.total_water < item.count:
+                    continue
+                if item.name == "water":
+                    self.total_water -= item.count
                 self.resources = remaining_resources
         for i, item in enumerate(self.resources):
             if item.name == "person":
@@ -119,7 +133,15 @@ class Item:
         return -1
 
     def __repr__(self) -> str:
-        return "{name: " + str(self.name) + ", count: " + str(self.count) + ",  tag: " + str(self.tag) + "}"
+        return (
+            "{name: "
+            + str(self.name)
+            + ", count: "
+            + str(self.count)
+            + ",  tag: "
+            + str(self.tag)
+            + "}"
+        )
 
 
 class Building(pg.Rect):
@@ -132,13 +154,17 @@ class Building(pg.Rect):
         self.manual = True
 
     def display(self, window, x_offset, y_offset):
+        if self.x - x_offset < resource_div_rect.x:
+            return
+        if self.bottom - y_offset > div_rect.y:
+            return
         window.blit(assets[self.name], (self.x - x_offset, self.y - y_offset))
 
     def work(self, resources, called_as_click=False):
         "this function will return -1 if there are insufficent resoureces"
         if self.manual and not called_as_click:
             return -1
-        
+
         for item in building_info[self.name]["in"]:
             for i, value in enumerate(resources):
                 new_item = value - item
@@ -237,8 +263,9 @@ for i, asset in enumerate(assets):
 div_rect = pg.Rect(
     0, window_height - button_size * button_scale, window_width, 5
 )  # decorational only
-resource_div_rect = pg.Rect(300, 0, 5, window_height-button_size*button_scale)  # decorational only
-resource_div_rect_x = resource_div_rect.x
+resource_div_rect = pg.Rect(
+    300, 0, 5, window_height - button_size * button_scale
+)  # decorational only
 
 # loading non-building assets
 assets.update(load_assets("assets/buildings"))
@@ -262,6 +289,7 @@ main_kingdom.resources = [
 is_configuring = False
 configuring_pos = None
 building_configered = None
+
 # configure buttons
 manual_config = Button((0, 0), assets["Off"], 1)
 add_people_config = Button((0, 0), assets["Plus"])
@@ -269,15 +297,39 @@ minus_people_config = Button((0, 0), assets["Minus"])
 people_text_pos = 70, 60
 people_employed_stat = 0
 
+# button scrolling
+building_scroll_right = Button(
+    (
+        window_width - button_size * button_scale,
+        window_height - button_size * button_scale,
+    ),
+    assets["Right"],
+)
+building_scroll_left = Button(
+    (0, window_height - button_size * button_scale), assets["Left"]
+)
+
+# resource menu scrolling
+is_scrolling_resource_menu = False
+resource_scrolling = 0
+
+# building offset
+building_x_offset = 0
+building_y_offset = 0
+
 
 def display():
     window.fill((255, 255, 255))
-    main_kingdom.display(window)
+    main_kingdom.display(
+        window, building_x_offset, building_y_offset, resource_scrolling
+    )
 
     # buttons
     for button in buttons:
         button.display(window)
     play_button.display(window)
+    building_scroll_left.display(window)
+    building_scroll_right.display(window)
     pg.draw.rect(window, (0, 0, 0), div_rect)
     pg.draw.rect(window, (0, 0, 0), resource_div_rect)
 
@@ -304,24 +356,34 @@ while run:
         if event.type == pg.MOUSEBUTTONDOWN:
             if is_configuring:
                 if manual_config.clicked():
-                    main_kingdom.buildings[building_configered].manual = not main_kingdom.buildings[building_configered].manual
+                    main_kingdom.buildings[building_configered].manual = (
+                        not main_kingdom.buildings[building_configered].manual
+                    )
                     if not main_kingdom.buildings[building_configered].manual:
                         manual_config.image = assets["On"]
                     else:
                         manual_config.image = assets["Off"]
                 elif add_people_config.clicked():
+                    if main_kingdom.buildings[building_configered].jobs < 1:
+                        continue
                     try:
                         main_kingdom.unemployed_people.pop(0)
-                        main_kingdom.people.append(Person(main_kingdom.buildings[building_configered]))
+                        main_kingdom.people.append(
+                            Person(main_kingdom.buildings[building_configered])
+                        )
                         people_employed_stat += 1
+                        main_kingdom.buildings[building_configered].jobs -= 1
                     except IndexError:
                         pass
                 elif minus_people_config.clicked():
                     for i, person in enumerate(main_kingdom.people):
-                        if id(person.job) == id(main_kingdom.buildings[building_configered]):
+                        if id(person.job) == id(
+                            main_kingdom.buildings[building_configered]
+                        ):
                             main_kingdom.people.pop(i)
                             main_kingdom.unemployed_people.append(Person())
                             people_employed_stat -= 1
+                            main_kingdom.buildings[building_configered].jobs += 1
                             break
                 else:
                     is_configuring = False
@@ -331,18 +393,40 @@ while run:
                     selected_button = i
                     break
             else:
+                # button clicking
                 if play_button.clicked():
                     main_kingdom.tick()
                     main_kingdom.employ_all_people()
                     continue
+                if building_scroll_left.clicked():
+                    for button in buttons:
+                        button.x -= 1
+                    continue
+                if building_scroll_right.clicked():
+                    for button in buttons:
+                        button.x += 1
+                    continue
                 x, y = pg.mouse.get_pos()
+                if x < resource_div_rect.x:
+                    is_scrolling_resource_menu = True
+                    continue
+                # updating x, y in context to x / y offset
+                x += building_x_offset
+                y += building_y_offset
+                # building clicking (work / config)
                 for i, building in enumerate(main_kingdom.buildings):
                     if building.collidepoint((x, y)):
                         if event.button == 1:
-                            remaining_resources = building.work(main_kingdom.resources, True)
+                            remaining_resources = building.work(
+                                main_kingdom.resources, True
+                            )
                             if not isinstance(remaining_resources, int):
                                 main_kingdom.resources = remaining_resources
                         if event.button == 3:
+                            # updating x, y to fit config menu in screen
+                            x -= building_x_offset
+                            y -= building_y_offset
+
                             people_employed_stat = 0
                             configuring_pos = x, y
                             is_configuring = True
@@ -356,16 +440,46 @@ while run:
                             minus_people_config.topleft = x + 140, y + 60
                             people_text_pos = x + 70, y + 60
                             for person in main_kingdom.people:
-                                if id(person.job) == id(main_kingdom.buildings[building_configered]):
+                                if id(person.job) == id(
+                                    main_kingdom.buildings[building_configered]
+                                ):
                                     people_employed_stat += 1
-
+                        break
 
         if event.type == pg.MOUSEBUTTONUP:
+            is_scrolling_resource_menu = False
             if selected_button is None:
                 continue
             x, y = pg.mouse.get_pos()
-            main_kingdom.add_building(buttons[selected_button].info, x, y)
+            if x < resource_div_rect.x:
+                selected_button = None
+                continue
+            if y > div_rect.y:
+                selected_button = None
+                continue
+            main_kingdom.add_building(
+                buttons[selected_button].info,
+                x + building_x_offset,
+                y + building_y_offset,
+            )
             selected_button = None
+
+    mouse_pressed_buttons = pg.mouse.get_pressed()
+    rel_x, rel_y = pg.mouse.get_rel()
+    if True in mouse_pressed_buttons:
+        if is_scrolling_resource_menu:
+            resource_scrolling += rel_y
+            resource_scrolling = min(resource_scrolling, 0)
+        elif building_scroll_left.clicked():
+            for button in buttons:
+                button.x -= 1
+        elif building_scroll_right.clicked():
+            for button in buttons:
+                button.x += 1
+        elif selected_button is None:
+            building_x_offset -= rel_x
+            building_y_offset -= rel_y
+
     display()
 pg.quit()
 quit()

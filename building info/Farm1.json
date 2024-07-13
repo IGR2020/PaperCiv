@@ -1,6 +1,6 @@
 {
-    "cost": [{"item": "wood", "count": 4}],
-    "in": [{"item": "water", "count": 3}],
-    "out": [{"item": "wheat", "count": 4, "tag": "food"}],
+    "cost": [{"item": "wood", "count": 8}],
+    "in": [{"item": "water", "count": 30}],
+    "out": [{"item": "wheat", "count": 2, "tag": "food"}],
     "jobs": 2
 }
