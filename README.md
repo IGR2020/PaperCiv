@@ -4,3 +4,5 @@ This is a simple game in which we can place building, which produce stuff which 
 + Mines
 + New house type
 + Scrolling of menus
++ Work button in config
++ Andriod support (playable on pydriod app on play store)
