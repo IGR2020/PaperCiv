@@ -297,6 +297,7 @@ building_configered = None
 manual_config = Button((0, 0), assets["Off"], 1)
 add_people_config = Button((0, 0), assets["Plus"])
 minus_people_config = Button((0, 0), assets["Minus"])
+work_config = Button((0, 0), assets["Work"])
 people_text_pos = 70, 60
 people_employed_stat = 0
 
@@ -347,6 +348,7 @@ def display():
         add_people_config.display(window)
         minus_people_config.display(window)
         blit_text(window, people_employed_stat, people_text_pos)
+        work_config.display(window)
     pg.display.update()
 
 
@@ -388,6 +390,12 @@ while run:
                             people_employed_stat -= 1
                             main_kingdom.buildings[building_configered].jobs += 1
                             break
+                elif work_config.clicked():
+                    remaining_resources = building.work(
+                        main_kingdom.resources, True
+                    )
+                    if not isinstance(remaining_resources, int):
+                        main_kingdom.resources = remaining_resources
                 else:
                     is_configuring = False
 
@@ -419,34 +427,28 @@ while run:
                 # building clicking (work / config)
                 for i, building in enumerate(main_kingdom.buildings):
                     if building.collidepoint((x, y)):
-                        if event.button == 1:
-                            remaining_resources = building.work(
-                                main_kingdom.resources, True
-                            )
-                            if not isinstance(remaining_resources, int):
-                                main_kingdom.resources = remaining_resources
-                        if event.button == 3:
-                            # updating x, y to fit config menu in screen
-                            x -= building_x_offset
-                            y -= building_y_offset
+                        # updating x, y to fit config menu in screen
+                        x -= building_x_offset
+                        y -= building_y_offset
 
-                            people_employed_stat = 0
-                            configuring_pos = x, y
-                            is_configuring = True
-                            building_configered = i
-                            if not main_kingdom.buildings[building_configered].manual:
-                                manual_config.image = assets["On"]
-                            else:
-                                manual_config.image = assets["Off"]
-                            manual_config.topleft = x + 120, y + 4
-                            add_people_config.topleft = x + 4, y + 60
-                            minus_people_config.topleft = x + 140, y + 60
-                            people_text_pos = x + 70, y + 60
-                            for person in main_kingdom.people:
-                                if id(person.job) == id(
-                                    main_kingdom.buildings[building_configered]
-                                ):
-                                    people_employed_stat += 1
+                        people_employed_stat = 0
+                        configuring_pos = x, y
+                        is_configuring = True
+                        building_configered = i
+                        if not main_kingdom.buildings[building_configered].manual:
+                            manual_config.image = assets["On"]
+                        else:
+                            manual_config.image = assets["Off"]
+                        manual_config.topleft = x + 140, y + 4
+                        add_people_config.topleft = x + 4, y + 60
+                        minus_people_config.topleft = x + 140, y + 60
+                        people_text_pos = x + 70, y + 60
+                        for person in main_kingdom.people:
+                            if id(person.job) == id(
+                                main_kingdom.buildings[building_configered]
+                            ):
+                                people_employed_stat += 1
+                        work_config.topleft = x, y + 120
                         break
 
         if event.type == pg.MOUSEBUTTONUP:
