@@ -6,3 +6,4 @@ This is a simple game in which we can place building, which produce stuff which 
 + Scrolling of menus
 + Work button in config
 + Andriod support (playable on pydriod app on play store)
++ tick limited to specified speed
