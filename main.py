@@ -4,6 +4,7 @@ import json
 from os import listdir
 from os.path import join
 from math import ceil
+from time import time
 
 
 class Kingdom:
@@ -25,8 +26,8 @@ class Kingdom:
                     break
             else:
                 return -1
-
-        self.buildings.append(Building(x, y, name, building_info[name]["jobs"]))
+        width, height = assets[name].get_size()
+        self.buildings.append(Building(x, y, width, height, name, building_info[name]["jobs"]))
 
     def display(self, window, x_offset=0, y_offset=0, resource_display_y_offset=0):
         for building in self.buildings:
@@ -148,13 +149,12 @@ class Item:
 
 
 class Building(pg.Rect):
-    def __init__(self, x, y, name, jobs, up_keep_cost=None):
-        width, height = assets[name].get_size()
+    def __init__(self, x, y, width, height, name, jobs):
         super().__init__(x, y, width, height)
         self.name = name
-        self.maintanince = up_keep_cost
         self.jobs = jobs
         self.manual = True
+        self.has_ticked = False
 
     def display(self, window, x_offset, y_offset):
         if self.x - x_offset < resource_div_rect.x:
@@ -165,8 +165,16 @@ class Building(pg.Rect):
 
     def work(self, resources, called_as_click=False):
         "this function will return -1 if there are insufficent resoureces"
+        if not called_as_click:
+            self.has_ticked = False
+        if self.has_ticked:
+            return -1
         if self.manual and not called_as_click:
             return -1
+        
+        # limiting ticking to once per tick
+        self.has_ticked = True
+        
 
         for item in building_info[self.name]["in"]:
             for i, value in enumerate(resources):
@@ -280,7 +288,9 @@ assets.update(
 play_button_size = 48
 play_button = Button((window_width - play_button_size, 0), assets["Play"])
 
+save_name = "main.pkl"
 
+# loading world data / creating new world
 main_kingdom = Kingdom()
 main_kingdom.resources = [
     Item("wheat", 100, "food"),
@@ -321,6 +331,17 @@ resource_scrolling = 0
 building_x_offset = 0
 building_y_offset = 0
 
+# tick speed (in seconds) / tick settings
+tick_speed = 10
+last_tick_time = time()
+is_paused = False
+# displaying tick progress
+tick_progress = 0
+total_tick_rect_width = 100
+tick_progress_rect = pg.Rect(resource_div_rect.right, 0, total_tick_rect_width, 25)
+tick_progress_rect_outline = pg.Rect(resource_div_rect.right, 0, total_tick_rect_width*1.1, tick_progress_rect.height*1.2)
+
+
 
 def display():
     window.fill((255, 255, 255))
@@ -349,6 +370,11 @@ def display():
         minus_people_config.display(window)
         blit_text(window, people_employed_stat, people_text_pos)
         work_config.display(window)
+
+    # tick progress display
+    pg.draw.rect(window, (0, 0, 0), tick_progress_rect_outline)
+    pg.draw.rect(window, (255*tick_progress, 255-255*tick_progress, 0), tick_progress_rect)
+
     pg.display.update()
 
 
@@ -357,7 +383,9 @@ selected_button = None
 while run:
     for event in pg.event.get():
         if event.type == pg.QUIT:
+
             run = False
+
         if event.type == pg.MOUSEBUTTONDOWN:
             if is_configuring:
                 if manual_config.clicked():
@@ -396,29 +424,35 @@ while run:
                     )
                     if not isinstance(remaining_resources, int):
                         main_kingdom.resources = remaining_resources
+                    work_config.image = assets["Work Pressed"]
                 else:
                     is_configuring = False
+                continue
 
             for i, button in enumerate(buttons):
                 if button.clicked():
                     selected_button = i
                     break
             else:
+                # getting the x, y positions
+                x, y = pg.mouse.get_pos()
                 # button clicking
                 if play_button.clicked():
-                    main_kingdom.tick()
-                    main_kingdom.employ_all_people()
+                    is_paused = not is_paused
+                    if is_paused:
+                        play_button.image = assets["Pause"]
+                    else:
+                        play_button.image = assets["Play"]
                     continue
-                if building_scroll_left.clicked():
+                elif building_scroll_left.clicked():
                     for button in buttons:
                         button.x -= 1
                     continue
-                if building_scroll_right.clicked():
+                elif building_scroll_right.clicked():
                     for button in buttons:
                         button.x += 1
                     continue
-                x, y = pg.mouse.get_pos()
-                if x < resource_div_rect.x:
+                elif x < resource_div_rect.x:
                     is_scrolling_resource_menu = True
                     continue
                 # updating x, y in context to x / y offset
@@ -453,6 +487,7 @@ while run:
 
         if event.type == pg.MOUSEBUTTONUP:
             is_scrolling_resource_menu = False
+            work_config.image = assets["Work"]
             if selected_button is None:
                 continue
             x, y = pg.mouse.get_pos()
@@ -484,6 +519,18 @@ while run:
         elif selected_button is None:
             building_x_offset -= rel_x
             building_y_offset -= rel_y
+
+    # tick logic
+    if not is_paused:
+        time_since_last_tick = time() - last_tick_time
+        tick_progress = time_since_last_tick/tick_speed
+        tick_progress_rect.width = total_tick_rect_width * tick_progress
+        if time_since_last_tick > tick_speed:
+            main_kingdom.tick()
+            main_kingdom.employ_all_people()
+            last_tick_time = time()
+    else:
+        last_tick_time = time() - tick_speed*tick_progress
 
     display()
 pg.quit()
