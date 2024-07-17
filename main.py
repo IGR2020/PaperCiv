@@ -2,9 +2,10 @@ import pygame as pg
 from EPT import load_assets, Button, blit_text
 import json
 from os import listdir
-from os.path import join
+from os.path import join, isfile
 from math import ceil
 from time import time
+import pickle
 
 
 class Kingdom:
@@ -148,20 +149,20 @@ class Item:
         )
 
 
-class Building(pg.Rect):
+class Building():
     def __init__(self, x, y, width, height, name, jobs):
-        super().__init__(x, y, width, height)
+        self.rect = pg.Rect(x, y, width, height)
         self.name = name
         self.jobs = jobs
         self.manual = True
         self.has_ticked = False
 
     def display(self, window, x_offset, y_offset):
-        if self.x - x_offset < resource_div_rect.x:
+        if self.rect.x - x_offset < resource_div_rect.x:
             return
-        if self.bottom - y_offset > div_rect.y:
+        if self.rect.bottom - y_offset > div_rect.y:
             return
-        window.blit(assets[self.name], (self.x - x_offset, self.y - y_offset))
+        window.blit(assets[self.name], (self.rect.x - x_offset, self.rect.y - y_offset))
 
     def work(self, resources, called_as_click=False):
         "this function will return -1 if there are insufficent resoureces"
@@ -272,7 +273,7 @@ for i, asset in enumerate(assets):
         )
     )
 div_rect = pg.Rect(
-    0, window_height - button_size * button_scale, window_width, 5
+    0, window_height - button_size * button_scale - 5, window_width, 5
 )  # decorational only
 resource_div_rect = pg.Rect(
     300, 0, 5, window_height - button_size * button_scale
@@ -288,10 +289,17 @@ assets.update(
 play_button_size = 48
 play_button = Button((window_width - play_button_size, 0), assets["Play"])
 
+username = "main"
 save_name = "main.pkl"
 
 # loading world data / creating new world
-main_kingdom = Kingdom()
+if isfile(f"Civ Data/{save_name}"):
+    file = open(f"Civ Data/{save_name}", "rb")
+    kingdoms = pickle.load(file)
+    file.close()
+else:
+    kingdoms = {username: Kingdom()}
+main_kingdom = kingdoms[username]
 main_kingdom.resources = [
     Item("wheat", 100, "food"),
     Item("water", 100),
@@ -384,6 +392,12 @@ while run:
     for event in pg.event.get():
         if event.type == pg.QUIT:
 
+            # saving civ data
+            kingdoms[username] = main_kingdom
+            file = open(f"Civ Data/{save_name}", "wb")
+            pickle.dump(kingdoms, file)
+            file.close()
+
             run = False
 
         if event.type == pg.MOUSEBUTTONDOWN:
@@ -460,7 +474,7 @@ while run:
                 y += building_y_offset
                 # building clicking (work / config)
                 for i, building in enumerate(main_kingdom.buildings):
-                    if building.collidepoint((x, y)):
+                    if building.rect.collidepoint((x, y)):
                         # updating x, y to fit config menu in screen
                         x -= building_x_offset
                         y -= building_y_offset
