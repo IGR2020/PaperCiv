@@ -28,7 +28,9 @@ class Kingdom:
             else:
                 return -1
         width, height = assets[name].get_size()
-        self.buildings.append(Building(x, y, width, height, name, building_info[name]["jobs"]))
+        self.buildings.append(
+            Building(x, y, width, height, name, building_info[name]["jobs"])
+        )
 
     def display(self, window, x_offset=0, y_offset=0, resource_display_y_offset=0):
         for building in self.buildings:
@@ -149,7 +151,7 @@ class Item:
         )
 
 
-class Building():
+class Building:
     def __init__(self, x, y, width, height, name, jobs):
         self.rect = pg.Rect(x, y, width, height)
         self.name = name
@@ -172,10 +174,9 @@ class Building():
             return -1
         if self.manual and not called_as_click:
             return -1
-        
+
         # limiting ticking to once per tick
         self.has_ticked = True
-        
 
         for item in building_info[self.name]["in"]:
             for i, value in enumerate(resources):
@@ -257,7 +258,7 @@ text_size = 30
 default_item_size = 32
 
 button_size = 48
-button_scale = 1
+button_scale = 2
 
 buttons = []
 for i, asset in enumerate(assets):
@@ -301,9 +302,9 @@ else:
     kingdoms = {username: Kingdom()}
 main_kingdom = kingdoms[username]
 main_kingdom.resources = [
-    Item("wheat", 100, "food"),
-    Item("water", 100),
-    Item("wood", 50),
+    Item("Wheat", 100, "food"),
+    Item("Water", 100),
+    Item("Wood", 50),
     Item("person", 1),
 ]
 
@@ -326,9 +327,10 @@ building_scroll_right = Button(
         window_height - button_size * button_scale,
     ),
     assets["Right"],
+    button_scale,
 )
 building_scroll_left = Button(
-    (0, window_height - button_size * button_scale), assets["Left"]
+    (0, window_height - button_size * button_scale), assets["Left"], button_scale
 )
 
 # resource menu scrolling
@@ -347,8 +349,12 @@ is_paused = False
 tick_progress = 0
 total_tick_rect_width = 100
 tick_progress_rect = pg.Rect(resource_div_rect.right, 0, total_tick_rect_width, 25)
-tick_progress_rect_outline = pg.Rect(resource_div_rect.right, 0, total_tick_rect_width*1.1, tick_progress_rect.height*1.2)
-
+tick_progress_rect_outline = pg.Rect(
+    resource_div_rect.right,
+    0,
+    total_tick_rect_width * 1.1,
+    tick_progress_rect.height * 1.2,
+)
 
 
 def display():
@@ -381,7 +387,9 @@ def display():
 
     # tick progress display
     pg.draw.rect(window, (0, 0, 0), tick_progress_rect_outline)
-    pg.draw.rect(window, (255*tick_progress, 255-255*tick_progress, 0), tick_progress_rect)
+    pg.draw.rect(
+        window, (255 * tick_progress, 255 - 255 * tick_progress, 0), tick_progress_rect
+    )
 
     pg.display.update()
 
@@ -433,9 +441,7 @@ while run:
                             main_kingdom.buildings[building_configered].jobs += 1
                             break
                 elif work_config.clicked():
-                    remaining_resources = building.work(
-                        main_kingdom.resources, True
-                    )
+                    remaining_resources = building.work(main_kingdom.resources, True)
                     if not isinstance(remaining_resources, int):
                         main_kingdom.resources = remaining_resources
                     work_config.image = assets["Work Pressed"]
@@ -537,14 +543,14 @@ while run:
     # tick logic
     if not is_paused:
         time_since_last_tick = time() - last_tick_time
-        tick_progress = time_since_last_tick/tick_speed
+        tick_progress = time_since_last_tick / tick_speed
         tick_progress_rect.width = total_tick_rect_width * tick_progress
         if time_since_last_tick > tick_speed:
             main_kingdom.tick()
             main_kingdom.employ_all_people()
             last_tick_time = time()
     else:
-        last_tick_time = time() - tick_speed*tick_progress
+        last_tick_time = time() - tick_speed * tick_progress
 
     display()
 pg.quit()
