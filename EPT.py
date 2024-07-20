@@ -1,8 +1,6 @@
 import pygame
 from os import listdir
 from os.path import join, isfile, isdir
-from threading import Thread
-from PIL import Image
 
 pygame.font.init()
 
@@ -83,60 +81,8 @@ def load_assets_list(path, size: int = None, scale: float = None):
     return sprites
 
 
-def convert_to_thread(func, fps, give_clock_to_func=False):
-    if give_clock_to_func:
-
-        def wrapper():
-            clock = pygame.time.Clock()
-            while True:
-                clock.tick(fps)
-                try:
-                    func(clock)
-                except Exception as error_message:
-                    print(
-                        "Error occured during runtime of function. The thread has been stoped."
-                    )
-                    print(f"#-------{error_message}-------#\n")
-                    return
-
-    else:
-
-        def wrapper():
-            clock = pygame.time.Clock()
-            while True:
-                clock.tick(fps)
-                try:
-                    func()
-                except Exception as error_message:
-                    print(
-                        "Error occured during runtime of function. The thread has been stoped."
-                    )
-                    print(f"#-------{error_message}-------#\n")
-                    return
-
-    wrapper_thread = Thread(target=wrapper)
-    return wrapper_thread
-
-
 def flip(sprites):
     return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
-
-
-def crop_outer_areas(pilImage):
-    return pilImage.crop(pilImage.getbbox(alpha_only=True))
-
-
-def pilImageToSurface(pilImage):
-    return pygame.image.fromstring(
-        pilImage.tobytes(), pilImage.size, pilImage.mode
-    ).convert_alpha()
-
-
-def surfaceToPilImage(surface):
-    mode = "RGBA"
-    buffer_str = pygame.image.tostring(surface, mode)
-    image_size = surface.get_size()
-    return Image.frombytes(mode, image_size, buffer_str)
 
 
 def load_sprite_sheets(
@@ -154,10 +100,6 @@ def load_sprite_sheets(
                 surface = pygame.Surface((width, height), pygame.SRCALPHA, 32)
                 rect = pygame.Rect(i * width, j * height, width, height)
                 surface.blit(sprite_sheet, (0, 0), rect)
-                if autocrop:
-                    surface = pilImageToSurface(
-                        crop_outer_areas(surfaceToPilImage(surface))
-                    )
                 sprites.append(pygame.transform.scale2x(surface))
 
         if resize is not None:

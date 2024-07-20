@@ -6,6 +6,7 @@ from os.path import join, isfile
 from math import ceil
 from time import time
 import pickle
+from random import choices
 
 
 class Kingdom:
@@ -38,6 +39,9 @@ class Kingdom:
 
         # items
         for i, item in enumerate(self.resources):
+            if item.name is None:
+                self.resources.pop(i)
+                continue
             blit_text(
                 window,
                 item.name + "   " + str(item.count),
@@ -106,10 +110,12 @@ class Item:
 
     def __add__(self, other):
         """This function will return -1 if it cannot add the values"""
+
         if isinstance(other, int) or isinstance(other, float):
             return Item(self.name, self.count + other, self.tag)
-        if not isinstance(other, Item):
+        if not isinstance(other, Item) and not isinstance(other, RandItem):
             return -1
+        other.update()
         if self.name == other.name or (
             (self.tag == other.tag or self.tag == other.name or self.name == other.tag)
             and self.tag is not None
@@ -123,8 +129,9 @@ class Item:
             isinstance(other, int) or isinstance(other, float)
         ) and self.count > other.count:
             return Item(self.name, self.count - other, self.tag)
-        if not isinstance(other, Item):
+        if not isinstance(other, Item) and not isinstance(other, RandItem):
             return -1
+        other.update()
         if (
             self.name == other.name
             or (
@@ -149,8 +156,41 @@ class Item:
             + str(self.tag)
             + "}"
         )
+    
+    def update(*args): ...
 
+class RandItem(Item):
+    def __init__(self, items: list[Item], weights: list[float]) -> None:
+        self.items = items
+        self.weights = weights
+        total_weights = 0
+        for weight in self.weights:
+            total_weights += weight
+        if total_weights < 1:
+            self.items.append(Item(None, 0, None))
+            self.weights.append(1-total_weights)
+        super().__init__(self.items[0].name, self.items[0].count, self.items[0].tag)
 
+    def __sub__(self, other):
+        chosen_item = choices(self.items, weights=self.weights, k=1)[0]
+        self.name = chosen_item.name
+        self.count = chosen_item.count
+        self.tag = chosen_item.tag
+        return super().__sub__(other)
+
+    def __add__(self, other):
+        chosen_item = choices(self.items, weights=self.weights, k=1)[0]
+        self.name = chosen_item.name
+        self.count = chosen_item.count
+        self.tag = chosen_item.tag
+        return super().__add__(other)
+    
+    def update(self, *args):
+        chosen_item = choices(self.items, weights=self.weights, k=1)[0]
+        self.name = chosen_item.name
+        self.count = chosen_item.count
+        self.tag = chosen_item.tag
+    
 class Building:
     def __init__(self, x, y, width, height, name, jobs):
         self.rect = pg.Rect(x, y, width, height)
@@ -192,8 +232,19 @@ class Building:
                 if not isinstance(new_item, int):
                     resources[i] = new_item
                     break
+                if value.name is None:
+                    break
             else:
                 resources.append(item)
+        
+        # ensuring no duplicate items
+        for item in resources:
+            for i, item2 in enumerate(resources):
+                if id(item) == id(item2):
+                    continue
+                if item.name == item2.name:
+                    item.count += item2.count
+                    resources.pop(i)
         return resources
 
 
@@ -228,6 +279,18 @@ def load_building_info(path):
             except KeyError:
                 continue
         for value in out_items:
+            if isinstance(value, list):
+                items = []
+                weights = []
+                for item in value:
+                    items.append(Item(item["item"], item["count"]))
+                    try:
+                        items[-1].tag = item["tag"]
+                    except KeyError:
+                        pass
+                    weights.append(item["chance"])
+                out_items_loaded.append(RandItem(items, weights))
+                continue
             out_items_loaded.append(Item(value["item"], value["count"]))
             try:
                 out_items_loaded[-1].tag = value["tag"]
@@ -245,7 +308,6 @@ def load_building_info(path):
 
 assets = load_assets("assets/building buttons")
 building_info = load_building_info("building info")
-
 window_width, window_height = 1920 * 0.7, 1080 * 0.7
 window = pg.display.set_mode((window_width, window_height), pg.RESIZABLE)
 pg.display.set_caption("PaperCiv")
@@ -308,6 +370,8 @@ main_kingdom.resources = [
     Item("person", 1),
 ]
 
+
+
 is_configuring = False
 configuring_pos = None
 building_configered = None
@@ -342,7 +406,7 @@ building_x_offset = 0
 building_y_offset = 0
 
 # tick speed (in seconds) / tick settings
-tick_speed = 10
+tick_speed = 7
 last_tick_time = time()
 is_paused = False
 # displaying tick progress
@@ -532,10 +596,10 @@ while run:
             resource_scrolling = min(resource_scrolling, 0)
         elif building_scroll_left.clicked():
             for button in buttons:
-                button.x -= 1
+                button.x -= 4
         elif building_scroll_right.clicked():
             for button in buttons:
-                button.x += 1
+                button.x += 4
         elif selected_button is None:
             building_x_offset -= rel_x
             building_y_offset -= rel_y
@@ -549,6 +613,8 @@ while run:
             main_kingdom.tick()
             main_kingdom.employ_all_people()
             last_tick_time = time()
+        if tick_progress > 1:
+            tick_progress = 1
     else:
         last_tick_time = time() - tick_speed * tick_progress
 
