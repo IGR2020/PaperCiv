@@ -38,35 +38,70 @@ class Kingdom:
             building.display(window, x_offset, y_offset)
 
         # items
-        for i, item in enumerate(self.resources):
-            if item.name is None:
-                self.resources.pop(i)
-                continue
-            blit_text(
-                window,
-                item.name + "   " + str(item.count),
-                (
-                    0,
-                    i * text_size + text_size * 0.2 * i - 5 + resource_display_y_offset,
-                ),
-                size=text_size,
-            ).get_width()
-            try:
+        item_index = 0
+        for i in range(len(self.resources) // 6 + 1):  # y iterations
+            for j in range(6):  # x iteration
+                # extracting item
+                if item_index >= len(self.resources):
+                    break
+                item = self.resources[item_index]
+
+                # removing useless items and iterations
+                if item.name is None:
+                    self.resources.pop(item_index)
+                    continue
+                if (
+                    text_size
+                    + i * text_size
+                    + text_size * 0.2 * i
+                    - 5
+                    + resource_display_y_offset
+                    > div_rect.y
+                ):
+                    break
                 window.blit(
-                    assets[item.name],
+                    assets["Slot"],
                     (
-                        resource_div_rect.x - default_item_size * 2,
+                        j * button_size,
                         i * text_size + text_size * 0.2 * i + resource_display_y_offset,
                     ),
                 )
-            except KeyError:
-                window.blit(
-                    assets["Missing Item"],
+                try:
+                    window.blit(
+                        assets[item.name],
+                        (
+                            j * button_size + button_size / 6,
+                            i * text_size
+                            + text_size * 0.2 * i
+                            + resource_display_y_offset
+                            + button_size / 6,
+                        ),
+                    )
+                except KeyError:
+                    window.blit(
+                        assets["Missing Item"],
+                        (
+                            j * button_size + button_size / 6,
+                            i * text_size
+                            + text_size * 0.2 * i
+                            + resource_display_y_offset
+                            + button_size / 6,
+                        ),
+                    )
+
+                blit_text(
+                    window,
+                    item.count,
                     (
-                        resource_div_rect.x - default_item_size * 2,
-                        i * text_size + text_size * 0.2 * i + resource_display_y_offset,
+                        j * button_size + button_size / 6,
+                        i * text_size
+                        + text_size * 0.2 * i
+                        + resource_display_y_offset
+                        + button_size / 6,
                     ),
+                    size=15,
                 )
+                item_index += 1
 
     def tick(self):
         self.total_water += self.water_added
@@ -156,8 +191,9 @@ class Item:
             + str(self.tag)
             + "}"
         )
-    
+
     def update(*args): ...
+
 
 class RandItem(Item):
     def __init__(self, items: list[Item], weights: list[float]) -> None:
@@ -168,7 +204,7 @@ class RandItem(Item):
             total_weights += weight
         if total_weights < 1:
             self.items.append(Item(None, 0, None))
-            self.weights.append(1-total_weights)
+            self.weights.append(1 - total_weights)
         super().__init__(self.items[0].name, self.items[0].count, self.items[0].tag)
 
     def __sub__(self, other):
@@ -184,13 +220,14 @@ class RandItem(Item):
         self.count = chosen_item.count
         self.tag = chosen_item.tag
         return super().__add__(other)
-    
+
     def update(self, *args):
         chosen_item = choices(self.items, weights=self.weights, k=1)[0]
         self.name = chosen_item.name
         self.count = chosen_item.count
         self.tag = chosen_item.tag
-    
+
+
 class Building:
     def __init__(self, x, y, width, height, name, jobs):
         self.rect = pg.Rect(x, y, width, height)
@@ -236,7 +273,7 @@ class Building:
                     break
             else:
                 resources.append(item)
-        
+
         # ensuring no duplicate items
         for item in resources:
             for i, item2 in enumerate(resources):
@@ -308,8 +345,8 @@ def load_building_info(path):
 
 assets = load_assets("assets/building buttons")
 building_info = load_building_info("building info")
-window_width, window_height = 1920 * 0.7, 1080 * 0.7
-window = pg.display.set_mode((window_width, window_height), pg.RESIZABLE)
+window = pg.display.set_mode()
+window_width, window_height = window.get_size()
 pg.display.set_caption("PaperCiv")
 
 run = True
@@ -360,16 +397,16 @@ if isfile(f"Civ Data/{save_name}"):
     file = open(f"Civ Data/{save_name}", "rb")
     kingdoms = pickle.load(file)
     file.close()
+    main_kingdom = kingdoms[username]
 else:
     kingdoms = {username: Kingdom()}
-main_kingdom = kingdoms[username]
-main_kingdom.resources = [
-    Item("Wheat", 100, "food"),
-    Item("Water", 100),
-    Item("Wood", 50),
-    Item("person", 1),
-]
-
+    main_kingdom = kingdoms[username]
+    main_kingdom.resources = [
+        Item("Wheat", 100, "food"),
+        Item("Water", 100),
+        Item("Wood", 50),
+        Item("person", 5),
+    ]
 
 
 is_configuring = False
