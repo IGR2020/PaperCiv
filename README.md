@@ -13,3 +13,5 @@ This is a simple game in which we can place building, which produce stuff which 
 + Tick limited to specified speed
 + Saving and Loading
 + Random drops add (mines give raw iron randomly)
++ New UI layout
+
