@@ -14,4 +14,4 @@ This is a simple game in which we can place building, which produce stuff which 
 + Saving and Loading
 + Random drops add (mines give raw iron randomly)
 + New UI layout
-
++ New buildings, and items.
