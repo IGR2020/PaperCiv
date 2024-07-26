@@ -93,11 +93,11 @@ class Kingdom:
                     window,
                     item.count,
                     (
-                        j * button_size + button_size / 6,
+                        j * button_size,
                         i * text_size
                         + text_size * 0.2 * i
                         + resource_display_y_offset
-                        + button_size / 6,
+                       ,
                     ),
                     size=15,
                 )

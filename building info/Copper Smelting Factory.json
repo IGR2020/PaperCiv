@@ -1,0 +1,6 @@
+{
+    "cost": [{"item": "Iron", "count": 1}, {"item": "Stone", "count": 3}, {"item": "Wood", "count": 10}],
+    "in": [{"item": "Raw Copper", "count": 1}],
+    "out": [[{"chance": 0.4, "item": "Copper", "count": 1}, {"chance": 0.5, "item": "Copper", "count": 2}, {"chance": 0.1, "item": "Copper", "count": 3}]],
+    "jobs": 6
+}

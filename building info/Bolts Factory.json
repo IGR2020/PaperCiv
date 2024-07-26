@@ -1,0 +1,6 @@
+{
+    "cost": [{"item": "Copper", "count": 3}, {"item": "Iron", "count": 5}],
+    "in": [{"item": "Iron", "count": 1}],
+    "out": [{"item": "Bolt", "count": 3}],
+    "jobs": 5
+}
